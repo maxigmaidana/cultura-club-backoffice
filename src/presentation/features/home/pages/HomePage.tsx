@@ -1,19 +1,19 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/presentation/features/auth/context/AuthContext';
 import { RoleGuard } from '@/presentation/features/auth/components/RoleGuard';
-import { CreateTriviaForm } from '@/presentation/features/trivias/components/CreateTriviaForm';
 import crestLogo from '@/assets/logo_cai.jpg';
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: 'Super Admin',
   ADMIN_CLUB: 'Admin del Club',
   ENTRENADOR: 'Entrenador',
+  JUGADOR: 'Jugador',
 };
 
 export function HomePage() {
   const { profile, logout } = useAuth();
-  const [showTriviaForm, setShowTriviaForm] = useState(false);
+  const navigate = useNavigate();
 
   const roleLabel = profile ? ROLE_LABELS[profile.role] ?? profile.role : '';
 
@@ -44,23 +44,19 @@ export function HomePage() {
 
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-8 sm:px-6">
         <RoleGuard allowedRoles={['ADMIN_CLUB', 'SUPER_ADMIN']}>
-          {!showTriviaForm && (
-            <div className="rounded-xl border bg-card p-5 shadow-sm">
-              <h2 className="text-base font-semibold">Trivias</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Creá una nueva trivia para que los hinchas del club participen.
-              </p>
-              <Button
-                className="mt-4 bg-[var(--brand-red)] text-white hover:bg-[var(--brand-red-dark)]"
-                onClick={() => setShowTriviaForm(true)}
-              >
-                Generar trivia
-              </Button>
-            </div>
-          )}
+          <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <h2 className="text-base font-semibold">Trivias</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Creá una nueva trivia para que los hinchas del club participen.
+            </p>
+            <Button
+              className="mt-4 bg-[var(--brand-red)] text-white hover:bg-[var(--brand-red-dark)]"
+              onClick={() => navigate('/generate-trivia')}
+            >
+              Generar trivia
+            </Button>
+          </div>
         </RoleGuard>
-
-        {showTriviaForm && <CreateTriviaForm />}
 
         <RoleGuard allowedRoles={['ENTRENADOR']}>
           <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">

@@ -5,19 +5,35 @@ import type { ITriviaRepository } from '@/domain/repositories/trivia/trivia_repo
 
 export class TriviaRepositoryImpl implements ITriviaRepository {
   async createTrivia(trivia: Trivia): Promise<void> {
-    const { error } = await supabase.from('trivias').insert([
-      {
-        pregunta: trivia.pregunta,
-        opciones: JSON.stringify(trivia.opciones),
-        respuesta_correcta: trivia.respuesta_correcta,
-        puntos: trivia.puntos,
-        estado: trivia.estado,
-        creador_id: trivia.creador_id,
-      }
-    ]);
+    const { data: triviaCreada, error: triviaError } = await supabase
+      .from('trivias')
+      .insert([
+        {
+          titulo: trivia.titulo,
+          categoria_id: trivia.categoria_id,
+          creador_id: trivia.creador_id,
+          estado: trivia.estado,
+        },
+      ])
+      .select('id')
+      .single();
 
-    if (error) {
-      throw new Error(error.message);
+    if (triviaError) {
+      throw new Error(triviaError.message);
+    }
+
+    const { error: preguntasError } = await supabase.from('trivia_preguntas').insert(
+      trivia.preguntas.map((pregunta) => ({
+        trivia_id: triviaCreada.id,
+        pregunta: pregunta.pregunta,
+        opciones: JSON.stringify(pregunta.opciones),
+        respuesta_correcta: pregunta.respuesta_correcta,
+        puntos: pregunta.puntos,
+      }))
+    );
+
+    if (preguntasError) {
+      throw new Error(preguntasError.message);
     }
   }
 }

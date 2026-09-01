@@ -22,7 +22,7 @@ export function LoginForm() {
 
     try {
       await login(email, password)
-      navigate('/', { replace: true })
+      navigate('/home', { replace: true })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo iniciar sesión.'
       setError(message)

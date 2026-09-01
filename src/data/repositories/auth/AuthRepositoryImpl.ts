@@ -28,8 +28,8 @@ export class AuthRepositoryImpl implements IAuthRepository {
 
   async getUserProfile(userId: string): Promise<UserProfile | null> {
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, email, role, nombre, club_id')
+      .from('usuarios')
+      .select('id, email, rol, nombre_completo, club_id')
       .eq('id', userId)
       .single();
 
@@ -37,7 +37,17 @@ export class AuthRepositoryImpl implements IAuthRepository {
       throw new Error(error.message);
     }
 
-    return data as UserProfile;
+    if (!data) {
+      return null;
+    }
+
+    return {
+      id: data.id,
+      email: data.email,
+      role: data.rol,
+      nombre: data.nombre_completo,
+      club_id: data.club_id,
+    };
   }
 
   onAuthStateChange(callback: (session: Session | null) => void): () => void {
