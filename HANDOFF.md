@@ -184,8 +184,8 @@ Muchas políticas RLS filtran por `club_id = get_user_club_id()`. `SUPER_ADMIN` 
 
 `.env` (no commitear valores reales en docs/código):
 ```
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...   # anon/publishable key, no la service_role
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...   # anon/publishable key, no la service_role
 ```
 Usadas en `src/data/datasources/supabase.ts`.
 
