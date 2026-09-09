@@ -1,7 +1,7 @@
 
 import { supabase } from '@/data/datasources/supabase';
 import type { Trivia } from '@/domain/entities/trivia/Trivia';
-import type { ITriviaRepository } from '@/domain/repositories/trivia/trivia_repository';
+import type { ITriviaRepository, TriviaWithCategoria, TriviaDetail } from '@/domain/repositories/trivia/trivia_repository';
 
 export class TriviaRepositoryImpl implements ITriviaRepository {
   async createTrivia(trivia: Trivia): Promise<void> {
@@ -26,7 +26,7 @@ export class TriviaRepositoryImpl implements ITriviaRepository {
       trivia.preguntas.map((pregunta) => ({
         trivia_id: triviaCreada.id,
         pregunta: pregunta.pregunta,
-        opciones: JSON.stringify(pregunta.opciones),
+        opciones: pregunta.opciones,
         respuesta_correcta: pregunta.respuesta_correcta,
         puntos: pregunta.puntos,
       }))
@@ -34,6 +34,45 @@ export class TriviaRepositoryImpl implements ITriviaRepository {
 
     if (preguntasError) {
       throw new Error(preguntasError.message);
+    }
+  }
+
+  async getAllTrivias(): Promise<TriviaWithCategoria[]> {
+    const { data, error } = await supabase
+      .from('trivias')
+      .select('id, titulo, categoria_id, estado, created_at, categorias(nombre)')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data || []) as unknown as TriviaWithCategoria[];
+  }
+
+  async getTriviaById(triviaId: string): Promise<TriviaDetail> {
+    const { data, error } = await supabase
+      .from('trivias')
+      .select('id, titulo, categoria_id, estado, created_at, categorias(nombre), trivia_preguntas(*)')
+      .eq('id', triviaId)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data) {
+      throw new Error('Trivia no encontrada');
+    }
+
+    return data as unknown as TriviaDetail;
+  }
+
+  async deleteTrivia(triviaId: string): Promise<void> {
+    const { error } = await supabase.from('trivias').delete().eq('id', triviaId);
+
+    if (error) {
+      throw new Error(error.message);
     }
   }
 }

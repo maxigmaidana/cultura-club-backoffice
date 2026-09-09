@@ -6,6 +6,8 @@ import { ProtectedRoute } from '@/presentation/features/auth/components/Protecte
 import { LoginPage } from '@/presentation/features/auth/pages/LoginPage'
 import { HomePage } from '@/presentation/features/home/pages/HomePage'
 import { GenerateTriviaPage } from '@/presentation/features/trivias/pages/GenerateTriviaPage'
+import { TriviasListPage } from '@/presentation/features/trivias/pages/TriviasListPage'
+import { TriviaDetailPage } from '@/presentation/features/trivias/pages/TriviaDetailPage'
 
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/home" element={<HomePage />} />
             <Route path="/generate-trivia" element={<GenerateTriviaPage />} />
+            <Route path="/trivias" element={<TriviasListPage />} />
+            <Route path="/trivias/:id" element={<TriviaDetailPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>

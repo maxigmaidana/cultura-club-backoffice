@@ -49,12 +49,20 @@ export function HomePage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Creá una nueva trivia para que los hinchas del club participen.
             </p>
-            <Button
-              className="mt-4 bg-[var(--brand-red)] text-white hover:bg-[var(--brand-red-dark)]"
-              onClick={() => navigate('/generate-trivia')}
-            >
-              Generar trivia
-            </Button>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Button
+                className="bg-[var(--brand-red)] text-white hover:bg-[var(--brand-red-dark)]"
+                onClick={() => navigate('/generate-trivia')}
+              >
+                Generar trivia
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/trivias')}
+              >
+                Gestionar trivias
+              </Button>
+            </div>
           </div>
         </RoleGuard>
 
