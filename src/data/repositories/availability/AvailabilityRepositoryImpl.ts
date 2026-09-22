@@ -1,9 +1,14 @@
 import { supabase } from '@/data/datasources/supabase';
 import type {
+  AvailabilityCategory,
   BodySide,
+  CategoriesForAvailabilityFilters,
   CreateInjuryInput,
   InjurySeverity,
+  JsonValue,
   PlayerAvailability,
+  PlayerAvailabilityContext,
+  PlayerForAvailabilityFilters,
   PlayerForAvailability,
   PlayerUnavailability,
   PlayerUnavailabilityHistoryEvent,
@@ -113,7 +118,7 @@ interface HistoryRow {
   unavailability_id: string;
   event_type: PlayerUnavailabilityHistoryEvent['eventType'];
   visibility: PlayerUnavailabilityHistoryEvent['visibility'];
-  details: string | null;
+  details: unknown;
   notes: string | null;
   changed_by: string | null;
   created_at: string;
@@ -123,6 +128,13 @@ interface UsuarioRow {
   id: string;
   nombre_completo: string | null;
   email: string | null;
+}
+
+interface CategoriaRow {
+  id: string;
+  nombre: string;
+  club_id: string | null;
+  entrenador_id: string | null;
 }
 
 function normalizePosiciones(posiciones: string[] | string | null): string[] {
@@ -174,6 +186,50 @@ function extractSingle<T>(value: T | T[] | null | undefined): T | null {
   return value;
 }
 
+function normalizeJsonValue(value: unknown): JsonValue {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeJsonValue(item));
+  }
+
+  if (typeof value === 'object') {
+    const result: { [key: string]: JsonValue } = {};
+
+    Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
+      result[key] = normalizeJsonValue(item);
+    });
+
+    return result;
+  }
+
+  return String(value);
+}
+
+function normalizeHistoryDetails(value: unknown): JsonValue {
+  if (typeof value === 'undefined') {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return normalizeJsonValue(parsed);
+    } catch {
+      return value;
+    }
+  }
+
+  return normalizeJsonValue(value);
+}
+
 function mapUnavailability(row: UnavailabilityRow): PlayerUnavailability {
   return {
     id: row.id,
@@ -213,6 +269,33 @@ function mapAvailability(row: RpcAvailabilityRow | null, playerId: string): Play
 }
 
 export class AvailabilityRepositoryImpl implements IAvailabilityRepository {
+  async getCategoriesForAvailability(
+    filters: CategoriesForAvailabilityFilters
+  ): Promise<AvailabilityCategory[]> {
+    let query = supabase.from('categorias').select('id, nombre, club_id, entrenador_id');
+
+    if (filters.role === 'ENTRENADOR') {
+      query = query.eq('entrenador_id', filters.requesterId);
+    }
+
+    if ((filters.role === 'ADMIN_CLUB' || filters.role === 'DOCTOR') && filters.clubId) {
+      query = query.eq('club_id', filters.clubId);
+    }
+
+    const { data, error } = await query.order('nombre', { ascending: true });
+
+    if (error) {
+      throw new Error(mapSupabaseErrorMessage(error.message));
+    }
+
+    return ((data ?? []) as CategoriaRow[]).map((row) => ({
+      id: row.id,
+      nombre: row.nombre,
+      clubId: row.club_id,
+      entrenadorId: row.entrenador_id,
+    }));
+  }
+
   async getPlayersForAvailability(filters: PlayersForAvailabilityFilters): Promise<PlayerForAvailability[]> {
     let query = supabase
       .from('jugadores_perfil')
@@ -270,6 +353,49 @@ export class AvailabilityRepositoryImpl implements IAvailabilityRepository {
     );
 
     return playersWithAvailability.sort((a, b) => a.nombreCompleto.localeCompare(b.nombreCompleto, 'es'));
+  }
+
+  async getPlayerForAvailability(
+    filters: PlayerForAvailabilityFilters
+  ): Promise<PlayerAvailabilityContext | null> {
+    let query = supabase
+      .from('jugadores_perfil')
+      .select(
+        'usuario_id, categoria_id, sector_cancha, posiciones, foto_url, usuarios!inner(id, nombre_completo, club_id), categorias(id, nombre, entrenador_id)'
+      )
+      .eq('usuario_id', filters.playerId);
+
+    if (filters.role === 'ENTRENADOR') {
+      query = query.eq('categorias.entrenador_id', filters.requesterId);
+    }
+
+    if ((filters.role === 'ADMIN_CLUB' || filters.role === 'DOCTOR') && filters.clubId) {
+      query = query.eq('usuarios.club_id', filters.clubId);
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      throw new Error(mapSupabaseErrorMessage(error.message));
+    }
+
+    const row = data as PlayerRow | null;
+    if (!row) {
+      return null;
+    }
+
+    const usuario = extractSingle(row.usuarios);
+    const categoria = extractSingle(row.categorias);
+
+    return {
+      userId: row.usuario_id,
+      nombreCompleto: usuario?.nombre_completo ?? 'Jugador sin nombre',
+      categoriaId: row.categoria_id,
+      categoriaNombre: categoria?.nombre ?? 'Sin categoria',
+      sectorCancha: row.sector_cancha,
+      posiciones: normalizePosiciones(row.posiciones),
+      fotoUrl: row.foto_url,
+    };
   }
 
   async getPlayerAvailability(playerId: string): Promise<PlayerAvailability> {
@@ -411,7 +537,7 @@ export class AvailabilityRepositoryImpl implements IAvailabilityRepository {
       unavailabilityId: row.unavailability_id,
       eventType: row.event_type,
       visibility: row.visibility,
-      details: row.details,
+      details: normalizeHistoryDetails(row.details),
       notes: row.notes,
       changedBy: row.changed_by,
       changedByName: row.changed_by ? (usersMap.get(row.changed_by) ?? row.changed_by) : null,

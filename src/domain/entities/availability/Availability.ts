@@ -16,6 +16,9 @@ export type HistoryEventType =
 
 export type HistoryVisibility = 'PLAYER' | 'STAFF' | 'MEDICAL' | 'SYSTEM';
 
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
 export interface PlayerAvailability {
   playerId: string;
   canTrain: boolean;
@@ -32,6 +35,23 @@ export interface PlayerForAvailability {
   posiciones: string[];
   fotoUrl: string | null;
   availability: PlayerAvailability;
+}
+
+export interface PlayerAvailabilityContext {
+  userId: string;
+  nombreCompleto: string;
+  categoriaId: string | null;
+  categoriaNombre: string;
+  sectorCancha: string | null;
+  posiciones: string[];
+  fotoUrl: string | null;
+}
+
+export interface AvailabilityCategory {
+  id: string;
+  nombre: string;
+  clubId?: string | null;
+  entrenadorId?: string | null;
 }
 
 export interface PlayerUnavailability {
@@ -89,7 +109,7 @@ export interface PlayerUnavailabilityHistoryEvent {
   unavailabilityId: string;
   eventType: HistoryEventType;
   visibility: HistoryVisibility;
-  details: string | null;
+  details: JsonValue;
   notes: string | null;
   changedBy: string | null;
   changedByName: string | null;
@@ -102,6 +122,19 @@ export interface PlayersForAvailabilityFilters {
   clubId?: string | null;
   search?: string;
   categoryId?: string;
+}
+
+export interface CategoriesForAvailabilityFilters {
+  role: Role;
+  requesterId: string;
+  clubId?: string | null;
+}
+
+export interface PlayerForAvailabilityFilters {
+  role: Role;
+  requesterId: string;
+  clubId?: string | null;
+  playerId: string;
 }
 
 export interface CreateInjuryInput {

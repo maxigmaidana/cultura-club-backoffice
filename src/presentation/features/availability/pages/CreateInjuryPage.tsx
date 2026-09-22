@@ -45,6 +45,9 @@ export function CreateInjuryPage() {
   const [searchParams] = useSearchParams();
 
   const doctorMode = profile?.role === 'DOCTOR';
+  const profileId = profile?.id;
+  const profileRole = profile?.role;
+  const profileClubId = profile?.club_id;
 
   const [players, setPlayers] = useState<PlayerForAvailability[]>([]);
   const [closedInjuries, setClosedInjuries] = useState<PlayerUnavailability[]>([]);
@@ -76,16 +79,16 @@ export function CreateInjuryPage() {
 
   useEffect(() => {
     const fetchPlayers = async () => {
-      if (!profile) {
+      if (!profileId || !profileRole) {
         return;
       }
 
       try {
         setLoadingPlayers(true);
         const data = await getPlayersForAvailabilityUseCase.execute({
-          role: profile.role,
-          requesterId: profile.id,
-          clubId: profile.club_id,
+          role: profileRole,
+          requesterId: profileId,
+          clubId: profileClubId,
         });
         setPlayers(data);
 
@@ -101,8 +104,8 @@ export function CreateInjuryPage() {
       }
     };
 
-    fetchPlayers();
-  }, [profile]);
+    void fetchPlayers();
+  }, [profileClubId, profileId, profileRole]);
 
   useEffect(() => {
     const fetchClosedInjuries = async () => {
@@ -164,7 +167,7 @@ export function CreateInjuryPage() {
     try {
       setSaving(true);
 
-      const injuryId = await createInjuryUseCase.execute(
+      await createInjuryUseCase.execute(
         {
           playerId: form.playerId,
           title: form.title.trim(),
@@ -189,7 +192,7 @@ export function CreateInjuryPage() {
         profile.role
       );
 
-      navigate(`/availability/injuries/${injuryId}`);
+      navigate('/availability', { state: { injuryCreated: true } });
     } catch (err) {
       console.error('Error al crear lesion:', err);
       const message = err instanceof Error ? err.message : 'No se pudo registrar la lesion.';

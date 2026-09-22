@@ -1,7 +1,9 @@
 import { CloseInjuryUseCase } from '@/aplication/use-cases/availability/CloseInjuryUseCase';
 import { CreateInjuryUseCase } from '@/aplication/use-cases/availability/CreateInjuryUseCase';
+import { GetCategoriesForAvailabilityUseCase } from '@/aplication/use-cases/availability/GetCategoriesForAvailabilityUseCase';
 import { GetMedicalDetailsUseCase } from '@/aplication/use-cases/availability/GetMedicalDetailsUseCase';
 import { GetPlayerAvailabilityUseCase } from '@/aplication/use-cases/availability/GetPlayerAvailabilityUseCase';
+import { GetPlayerForAvailabilityUseCase } from '@/aplication/use-cases/availability/GetPlayerForAvailabilityUseCase';
 import { GetPlayersForAvailabilityUseCase } from '@/aplication/use-cases/availability/GetPlayersForAvailabilityUseCase';
 import { GetPlayerUnavailabilitiesUseCase } from '@/aplication/use-cases/availability/GetPlayerUnavailabilitiesUseCase';
 import { GetStaffDetailsUseCase } from '@/aplication/use-cases/availability/GetStaffDetailsUseCase';
@@ -15,6 +17,8 @@ import { AvailabilityRepositoryImpl } from '@/data/repositories/availability/Ava
 
 const availabilityRepository = new AvailabilityRepositoryImpl();
 
+export const getCategoriesForAvailabilityUseCase = new GetCategoriesForAvailabilityUseCase(availabilityRepository);
+export const getPlayerForAvailabilityUseCase = new GetPlayerForAvailabilityUseCase(availabilityRepository);
 export const getPlayersForAvailabilityUseCase = new GetPlayersForAvailabilityUseCase(availabilityRepository);
 export const getPlayerAvailabilityUseCase = new GetPlayerAvailabilityUseCase(availabilityRepository);
 export const getPlayerUnavailabilitiesUseCase = new GetPlayerUnavailabilitiesUseCase(availabilityRepository);

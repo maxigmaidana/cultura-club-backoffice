@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, Search, Stethoscope } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -15,13 +15,19 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/presentation/features/auth/context/AuthContext';
-import { getPlayersForAvailabilityUseCase } from '@/presentation/features/availability/services/availabilityDependencies';
+import {
+  getCategoriesForAvailabilityUseCase,
+  getPlayersForAvailabilityUseCase,
+} from '@/presentation/features/availability/services/availabilityDependencies';
 import {
   availabilityStateLabel,
   availabilityStateVariant,
   getAvailabilityState,
 } from '@/presentation/features/availability/utils/availabilityUi';
-import type { PlayerForAvailability } from '@/domain/entities/availability/Availability';
+import type {
+  AvailabilityCategory,
+  PlayerForAvailability,
+} from '@/domain/entities/availability/Availability';
 
 const ALLOWED_ROLES = ['ENTRENADOR', 'ADMIN_CLUB', 'SUPER_ADMIN', 'DOCTOR'] as const;
 
@@ -34,28 +40,64 @@ function isAllowedRole(role: string): boolean {
 export function AvailabilityDashboardPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const profileId = profile?.id;
+  const profileRole = profile?.role;
+  const profileClubId = profile?.club_id;
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [players, setPlayers] = useState<PlayerForAvailability[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<AvailabilityCategory[]>([]);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedPlayersRef = useRef(false);
+
+  const showSuccessMessage =
+    Boolean(location.state) &&
+    typeof location.state === 'object' &&
+    'injuryCreated' in location.state;
 
   useEffect(() => {
-    const fetchPlayers = async () => {
-      if (!profile) {
+    const fetchCategories = async () => {
+      if (!profileId || !profileRole) {
         return;
       }
 
       try {
-        setLoading(true);
+        const data = await getCategoriesForAvailabilityUseCase.execute({
+          role: profileRole,
+          requesterId: profileId,
+          clubId: profileClubId,
+        });
+
+        setCategories(data);
+      } catch (err) {
+        console.error('Error al obtener categorias para disponibilidad:', err);
+      }
+    };
+
+    void fetchCategories();
+  }, [profileClubId, profileId, profileRole]);
+
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      if (!profileId || !profileRole) {
+        return;
+      }
+
+      try {
+        if (!hasLoadedPlayersRef.current) {
+          setInitialLoading(true);
+        }
         setError(null);
 
         const data = await getPlayersForAvailabilityUseCase.execute({
-          role: profile.role,
-          requesterId: profile.id,
-          clubId: profile.club_id,
+          role: profileRole,
+          requesterId: profileId,
+          clubId: profileClubId,
           search,
           categoryId: categoryFilter === 'ALL' ? undefined : categoryFilter,
         });
@@ -66,24 +108,13 @@ export function AvailabilityDashboardPage() {
         const message = err instanceof Error ? err.message : 'No se pudo cargar la disponibilidad.';
         setError(message);
       } finally {
-        setLoading(false);
+        setInitialLoading(false);
+        hasLoadedPlayersRef.current = true;
       }
     };
 
-    fetchPlayers();
-  }, [profile, search, categoryFilter]);
-
-  const categories = useMemo(() => {
-    const map = new Map<string, string>();
-
-    players.forEach((player) => {
-      if (player.categoriaId) {
-        map.set(player.categoriaId, player.categoriaNombre);
-      }
-    });
-
-    return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
-  }, [players]);
+    void fetchPlayers();
+  }, [categoryFilter, profileClubId, profileId, profileRole, search]);
 
   const filteredPlayers = useMemo(() => {
     return players.filter((player) => {
@@ -215,7 +246,13 @@ export function AvailabilityDashboardPage() {
           </Card>
         )}
 
-        {loading ? (
+        {showSuccessMessage && (
+          <Card className="border border-emerald-500/40 bg-emerald-500/5 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+            Lesion registrada correctamente.
+          </Card>
+        )}
+
+        {initialLoading && players.length === 0 ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
               <Card key={`skeleton-${index}`} className="space-y-3 p-4">

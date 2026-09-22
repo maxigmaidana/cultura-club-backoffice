@@ -1,6 +1,10 @@
 import type {
+  AvailabilityCategory,
+  CategoriesForAvailabilityFilters,
   CreateInjuryInput,
   PlayerAvailability,
+  PlayerAvailabilityContext,
+  PlayerForAvailabilityFilters,
   PlayerForAvailability,
   PlayerUnavailability,
   PlayerUnavailabilityHistoryEvent,
@@ -15,6 +19,8 @@ import type {
 import type { Role } from '@/domain/entities/auth/UserProfile';
 
 export interface IAvailabilityRepository {
+  getCategoriesForAvailability(filters: CategoriesForAvailabilityFilters): Promise<AvailabilityCategory[]>;
+  getPlayerForAvailability(filters: PlayerForAvailabilityFilters): Promise<PlayerAvailabilityContext | null>;
   getPlayersForAvailability(filters: PlayersForAvailabilityFilters): Promise<PlayerForAvailability[]>;
   getPlayerAvailability(playerId: string): Promise<PlayerAvailability>;
   getPlayerUnavailabilities(playerId: string): Promise<PlayerUnavailability[]>;

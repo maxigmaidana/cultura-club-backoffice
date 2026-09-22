@@ -13,6 +13,24 @@ const loginUseCase = new LoginUseCase(authRepository);
 const logoutUseCase = new LogoutUseCase(authRepository);
 const getCurrentUserUseCase = new GetCurrentUserUseCase(authRepository);
 
+function isSameProfile(a: UserProfile | null, b: UserProfile | null): boolean {
+  if (a === b) {
+    return true;
+  }
+
+  if (!a || !b) {
+    return false;
+  }
+
+  return (
+    a.id === b.id &&
+    a.email === b.email &&
+    a.role === b.role &&
+    a.nombre === b.nombre &&
+    a.club_id === b.club_id
+  );
+}
+
 interface AuthContextValue {
   session: Session | null;
   profile: UserProfile | null;
@@ -33,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .execute()
       .then(({ session: initialSession, profile: initialProfile }) => {
         setSession(initialSession);
-        setProfile(initialProfile);
+        setProfile((prev) => (isSameProfile(prev, initialProfile) ? prev : initialProfile));
       })
       .catch((err) => {
         console.error('Error al obtener la sesión actual:', err);
@@ -52,7 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       authRepository
         .getUserProfile(newSession.user.id)
-        .then(setProfile)
+        .then((nextProfile) => {
+          setProfile((prev) => (isSameProfile(prev, nextProfile) ? prev : nextProfile));
+        })
         .catch((err) => {
           console.error('Error al obtener el perfil del usuario:', err);
           setProfile(null);

@@ -2,6 +2,7 @@ import type {
   BodySide,
   HistoryEventType,
   InjurySeverity,
+  JsonValue,
   PlayerAvailability,
   UnavailabilityStatus,
 } from '@/domain/entities/availability/Availability';
@@ -92,4 +93,167 @@ export function historyEventLabel(eventType: HistoryEventType): string {
   };
 
   return labels[eventType];
+}
+
+function isRecord(value: JsonValue): value is { [key: string]: JsonValue } {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getRecordValue(record: { [key: string]: JsonValue }, keys: string[]): JsonValue | null {
+  for (const key of keys) {
+    if (key in record) {
+      return record[key];
+    }
+  }
+
+  return null;
+}
+
+function toBooleanLabel(value: JsonValue | null): string | null {
+  if (typeof value === 'boolean') {
+    return value ? 'Si' : 'No';
+  }
+
+  return null;
+}
+
+function toDateLabel(value: JsonValue | null): string | null {
+  if (typeof value !== 'string' || value.length === 0) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('es-AR');
+}
+
+function toStatusLabel(value: JsonValue | null): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  if (value === 'ACTIVE' || value === 'RECOVERING' || value === 'CLOSED') {
+    return statusLabel(value);
+  }
+
+  return value;
+}
+
+function extractChange(record: { [key: string]: JsonValue }, field: string): [JsonValue | null, JsonValue | null] {
+  const from = getRecordValue(record, [
+    `${field}_from`,
+    `${field}_old`,
+    `old_${field}`,
+    `prev_${field}`,
+    `${field}Before`,
+  ]);
+  const to = getRecordValue(record, [
+    `${field}_to`,
+    `${field}_new`,
+    `new_${field}`,
+    `next_${field}`,
+    `${field}After`,
+    field,
+  ]);
+
+  return [from, to];
+}
+
+export function formatHistoryDetails(eventType: HistoryEventType, details: JsonValue): string[] {
+  if (details === null) {
+    return [];
+  }
+
+  if (typeof details === 'string') {
+    return details.trim().length > 0 ? [details] : [];
+  }
+
+  if (!isRecord(details)) {
+    return [];
+  }
+
+  if (eventType === 'CREATED') {
+    const lines: string[] = ['Lesion registrada.'];
+    const initialStatus = toStatusLabel(getRecordValue(details, ['status']));
+    const canTrain = toBooleanLabel(getRecordValue(details, ['can_train', 'canTrain']));
+    const canPlay = toBooleanLabel(getRecordValue(details, ['can_play', 'canPlay']));
+    const estimatedReturn = toDateLabel(
+      getRecordValue(details, ['estimated_return_date', 'estimatedReturnDate'])
+    );
+
+    if (initialStatus) {
+      lines.push(`Estado inicial: ${initialStatus}.`);
+    }
+    if (canTrain) {
+      lines.push(`Puede entrenar: ${canTrain}.`);
+    }
+    if (canPlay) {
+      lines.push(`Puede jugar: ${canPlay}.`);
+    }
+    if (estimatedReturn) {
+      lines.push(`Regreso estimado: ${estimatedReturn}.`);
+    }
+
+    return lines;
+  }
+
+  if (eventType === 'RESTRICTIONS_CHANGED') {
+    const lines: string[] = ['Disponibilidad actualizada.'];
+    const [trainFrom, trainTo] = extractChange(details, 'can_train');
+    const [playFrom, playTo] = extractChange(details, 'can_play');
+    const trainFromLabel = toBooleanLabel(trainFrom);
+    const trainToLabel = toBooleanLabel(trainTo);
+    const playFromLabel = toBooleanLabel(playFrom);
+    const playToLabel = toBooleanLabel(playTo);
+
+    if (trainFromLabel || trainToLabel) {
+      lines.push(`Entrenamiento: ${trainFromLabel ?? '-'} -> ${trainToLabel ?? '-'}`);
+    }
+    if (playFromLabel || playToLabel) {
+      lines.push(`Partidos: ${playFromLabel ?? '-'} -> ${playToLabel ?? '-'}`);
+    }
+
+    return lines;
+  }
+
+  if (eventType === 'STATUS_CHANGED') {
+    const [statusFrom, statusTo] = extractChange(details, 'status');
+    const fromLabel = toStatusLabel(statusFrom);
+    const toLabel = toStatusLabel(statusTo);
+
+    if (fromLabel || toLabel) {
+      return [`Estado: ${fromLabel ?? '-'} -> ${toLabel ?? '-'}`];
+    }
+
+    return ['Estado actualizado.'];
+  }
+
+  if (eventType === 'ESTIMATED_RETURN_CHANGED') {
+    const [returnFrom, returnTo] = extractChange(details, 'estimated_return_date');
+    const fromLabel = toDateLabel(returnFrom);
+    const toLabel = toDateLabel(returnTo);
+
+    if (fromLabel || toLabel) {
+      return [`Fecha estimada de regreso: ${fromLabel ?? '-'} -> ${toLabel ?? '-'}`];
+    }
+
+    return ['Fecha estimada de regreso actualizada.'];
+  }
+
+  if (eventType === 'SPORTS_RECOMMENDATIONS_CHANGED') {
+    return ['Recomendaciones deportivas actualizadas.'];
+  }
+
+  if (eventType === 'MEDICAL_CLEARANCE') {
+    return ['Alta medica otorgada.'];
+  }
+
+  if (eventType === 'DETAILS_UPDATED') {
+    return ['Informacion general actualizada.'];
+  }
+
+  return [];
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, PlusCircle } from 'lucide-react';
 
@@ -34,26 +34,33 @@ export function PlayerAvailabilityDetailPage() {
   const navigate = useNavigate();
   const { playerId } = useParams<{ playerId: string }>();
 
+  const profileId = profile?.id;
+  const profileRole = profile?.role;
+  const profileClubId = profile?.club_id;
+
   const [player, setPlayer] = useState<PlayerForAvailability | null>(null);
   const [injuries, setInjuries] = useState<PlayerUnavailability[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!profile || !playerId) {
+      if (!profileId || !profileRole || !playerId) {
         return;
       }
 
       try {
-        setLoading(true);
+        if (!hasLoadedRef.current) {
+          setInitialLoading(true);
+        }
         setError(null);
 
         const [players, availability, playerInjuries] = await Promise.all([
           getPlayersForAvailabilityUseCase.execute({
-            role: profile.role,
-            requesterId: profile.id,
-            clubId: profile.club_id,
+            role: profileRole,
+            requesterId: profileId,
+            clubId: profileClubId,
           }),
           getPlayerAvailabilityUseCase.execute(playerId),
           getPlayerUnavailabilitiesUseCase.execute(playerId),
@@ -74,12 +81,13 @@ export function PlayerAvailabilityDetailPage() {
         const message = err instanceof Error ? err.message : 'No se pudo cargar el detalle del jugador.';
         setError(message);
       } finally {
-        setLoading(false);
+        setInitialLoading(false);
+        hasLoadedRef.current = true;
       }
     };
 
-    fetchData();
-  }, [playerId, profile]);
+    void fetchData();
+  }, [playerId, profileClubId, profileId, profileRole]);
 
   const activeInjuries = useMemo(
     () => injuries.filter((injury) => injury.status !== 'CLOSED'),
@@ -130,7 +138,7 @@ export function PlayerAvailabilityDetailPage() {
           </Card>
         )}
 
-        {loading ? (
+        {initialLoading && !player ? (
           <Card className="space-y-3 p-5">
             <Skeleton className="h-5 w-40" />
             <Skeleton className="h-4 w-full" />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
@@ -21,7 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type {
   BodySide,
   InjurySeverity,
-  PlayerForAvailability,
+  PlayerAvailabilityContext,
   PlayerUnavailability,
   PlayerUnavailabilityHistoryEvent,
 } from '@/domain/entities/availability/Availability';
@@ -29,7 +29,7 @@ import { useAuth } from '@/presentation/features/auth/context/AuthContext';
 import {
   closeInjuryUseCase,
   getMedicalDetailsUseCase,
-  getPlayersForAvailabilityUseCase,
+  getPlayerForAvailabilityUseCase,
   getStaffDetailsUseCase,
   getUnavailabilityByIdUseCase,
   getUnavailabilityHistoryUseCase,
@@ -39,6 +39,7 @@ import {
   updateStaffNotesUseCase,
 } from '@/presentation/features/availability/services/availabilityDependencies';
 import {
+  formatHistoryDetails,
   bodySideLabel,
   historyEventLabel,
   severityLabel,
@@ -59,8 +60,12 @@ export function InjuryDetailPage() {
   const navigate = useNavigate();
   const { injuryId } = useParams<{ injuryId: string }>();
 
+  const profileId = profile?.id;
+  const profileRole = profile?.role;
+  const profileClubId = profile?.club_id;
+
   const [injury, setInjury] = useState<PlayerUnavailability | null>(null);
-  const [player, setPlayer] = useState<PlayerForAvailability | null>(null);
+  const [player, setPlayer] = useState<PlayerAvailabilityContext | null>(null);
   const [history, setHistory] = useState<PlayerUnavailabilityHistoryEvent[]>([]);
 
   const [generalForm, setGeneralForm] = useState({
@@ -94,11 +99,12 @@ export function InjuryDetailPage() {
     medicalRecommendations: '',
   });
 
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const isDoctor = profile?.role === 'DOCTOR';
   const isClosed = injury?.status === 'CLOSED';
@@ -111,28 +117,32 @@ export function InjuryDetailPage() {
   const canCloseInjury = Boolean(isDoctor && injury && injury.status !== 'CLOSED');
 
   const fetchData = useCallback(async () => {
-    if (!profile || !injuryId) {
+    if (!profileId || !profileRole || !injuryId) {
       return;
     }
 
     try {
-      setLoading(true);
+      if (!hasLoadedRef.current) {
+        setInitialLoading(true);
+      }
       setError(null);
 
-      const [injuryData, staffData, historyData, players] = await Promise.all([
+      const [injuryData, staffData, historyData] = await Promise.all([
         getUnavailabilityByIdUseCase.execute(injuryId),
         getStaffDetailsUseCase.execute(injuryId),
         getUnavailabilityHistoryUseCase.execute(injuryId),
-        getPlayersForAvailabilityUseCase.execute({
-          role: profile.role,
-          requesterId: profile.id,
-          clubId: profile.club_id,
-        }),
       ]);
 
       setInjury(injuryData);
       setHistory(historyData);
-      setPlayer(players.find((candidate) => candidate.userId === injuryData.playerId) ?? null);
+
+      const playerData = await getPlayerForAvailabilityUseCase.execute({
+        role: profileRole,
+        requesterId: profileId,
+        clubId: profileClubId,
+        playerId: injuryData.playerId,
+      });
+      setPlayer(playerData);
 
       setGeneralForm({
         title: injuryData.title,
@@ -172,9 +182,10 @@ export function InjuryDetailPage() {
       const message = err instanceof Error ? err.message : 'No se pudo cargar el detalle de la lesion.';
       setError(message);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      hasLoadedRef.current = true;
     }
-  }, [injuryId, isDoctor, profile]);
+  }, [injuryId, isDoctor, profileClubId, profileId, profileRole]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -356,6 +367,15 @@ export function InjuryDetailPage() {
     return <Navigate to="/home" replace />;
   }
 
+  const getSafeHistoryDetailLines = (item: PlayerUnavailabilityHistoryEvent): string[] => {
+    try {
+      return formatHistoryDetails(item.eventType, item.details);
+    } catch (err) {
+      console.error('Error al formatear details del historial:', item, err);
+      return [];
+    }
+  };
+
   return (
     <div className="min-h-[100svh] bg-background">
       <div className="h-1 w-full bg-[var(--brand-red)]" />
@@ -390,7 +410,7 @@ export function InjuryDetailPage() {
           </Card>
         )}
 
-        {loading ? (
+        {initialLoading && !injury ? (
           <Card className="space-y-3 p-5">
             <Skeleton className="h-6 w-56" />
             <Skeleton className="h-4 w-72" />
@@ -787,9 +807,11 @@ export function InjuryDetailPage() {
                           <p className="text-xs text-muted-foreground">
                             Responsable: {item.changedByName || 'Sistema'}
                           </p>
-                          {item.details && (
-                            <p className="text-sm text-muted-foreground">{item.details}</p>
-                          )}
+                          {getSafeHistoryDetailLines(item).map((line, lineIndex) => (
+                            <p key={`${item.id}-detail-${lineIndex}`} className="text-sm text-muted-foreground">
+                              {line}
+                            </p>
+                          ))}
                           {item.notes && <p className="text-sm text-muted-foreground">{item.notes}</p>}
                         </div>
                       </div>
