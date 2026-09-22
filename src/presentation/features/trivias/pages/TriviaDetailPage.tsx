@@ -22,11 +22,6 @@ export function TriviaDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Defensa RBAC: solo ADMIN_CLUB y SUPER_ADMIN pueden ver detalles de trivias
-  if (profile && profile.role !== 'ADMIN_CLUB' && profile.role !== 'SUPER_ADMIN') {
-    return <Navigate to="/home" replace />;
-  }
-
   useEffect(() => {
     const fetchTriviaDetail = async () => {
       try {
@@ -69,6 +64,11 @@ export function TriviaDetailPage() {
       setDeleting(false);
     }
   };
+
+  // Defensa RBAC: solo ADMIN_CLUB y SUPER_ADMIN pueden ver detalles de trivias
+  if (profile && profile.role !== 'ADMIN_CLUB' && profile.role !== 'SUPER_ADMIN') {
+    return <Navigate to="/home" replace />;
+  }
 
   return (
     <div className="min-h-[100svh] bg-background">

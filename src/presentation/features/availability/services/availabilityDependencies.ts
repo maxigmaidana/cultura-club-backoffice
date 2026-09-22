@@ -1,0 +1,30 @@
+import { CloseInjuryUseCase } from '@/aplication/use-cases/availability/CloseInjuryUseCase';
+import { CreateInjuryUseCase } from '@/aplication/use-cases/availability/CreateInjuryUseCase';
+import { GetMedicalDetailsUseCase } from '@/aplication/use-cases/availability/GetMedicalDetailsUseCase';
+import { GetPlayerAvailabilityUseCase } from '@/aplication/use-cases/availability/GetPlayerAvailabilityUseCase';
+import { GetPlayersForAvailabilityUseCase } from '@/aplication/use-cases/availability/GetPlayersForAvailabilityUseCase';
+import { GetPlayerUnavailabilitiesUseCase } from '@/aplication/use-cases/availability/GetPlayerUnavailabilitiesUseCase';
+import { GetStaffDetailsUseCase } from '@/aplication/use-cases/availability/GetStaffDetailsUseCase';
+import { GetUnavailabilityByIdUseCase } from '@/aplication/use-cases/availability/GetUnavailabilityByIdUseCase';
+import { GetUnavailabilityHistoryUseCase } from '@/aplication/use-cases/availability/GetUnavailabilityHistoryUseCase';
+import { UpdateGeneralInjuryUseCase } from '@/aplication/use-cases/availability/UpdateGeneralInjuryUseCase';
+import { UpdateMedicalAssessmentUseCase } from '@/aplication/use-cases/availability/UpdateMedicalAssessmentUseCase';
+import { UpdateMedicalDetailsUseCase } from '@/aplication/use-cases/availability/UpdateMedicalDetailsUseCase';
+import { UpdateStaffNotesUseCase } from '@/aplication/use-cases/availability/UpdateStaffNotesUseCase';
+import { AvailabilityRepositoryImpl } from '@/data/repositories/availability/AvailabilityRepositoryImpl';
+
+const availabilityRepository = new AvailabilityRepositoryImpl();
+
+export const getPlayersForAvailabilityUseCase = new GetPlayersForAvailabilityUseCase(availabilityRepository);
+export const getPlayerAvailabilityUseCase = new GetPlayerAvailabilityUseCase(availabilityRepository);
+export const getPlayerUnavailabilitiesUseCase = new GetPlayerUnavailabilitiesUseCase(availabilityRepository);
+export const getUnavailabilityByIdUseCase = new GetUnavailabilityByIdUseCase(availabilityRepository);
+export const getStaffDetailsUseCase = new GetStaffDetailsUseCase(availabilityRepository);
+export const getMedicalDetailsUseCase = new GetMedicalDetailsUseCase(availabilityRepository);
+export const getUnavailabilityHistoryUseCase = new GetUnavailabilityHistoryUseCase(availabilityRepository);
+export const createInjuryUseCase = new CreateInjuryUseCase(availabilityRepository);
+export const updateGeneralInjuryUseCase = new UpdateGeneralInjuryUseCase(availabilityRepository);
+export const updateStaffNotesUseCase = new UpdateStaffNotesUseCase(availabilityRepository);
+export const updateMedicalAssessmentUseCase = new UpdateMedicalAssessmentUseCase(availabilityRepository);
+export const updateMedicalDetailsUseCase = new UpdateMedicalDetailsUseCase(availabilityRepository);
+export const closeInjuryUseCase = new CloseInjuryUseCase(availabilityRepository);

@@ -1,4 +1,4 @@
-export type Role = 'SUPER_ADMIN' | 'ADMIN_CLUB' | 'ENTRENADOR' | 'JUGADOR';
+export type Role = 'SUPER_ADMIN' | 'ADMIN_CLUB' | 'ENTRENADOR' | 'JUGADOR' | 'DOCTOR';
 
 export interface UserProfile {
   id: string;

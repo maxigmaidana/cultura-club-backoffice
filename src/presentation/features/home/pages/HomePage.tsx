@@ -9,6 +9,7 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN_CLUB: 'Admin del Club',
   ENTRENADOR: 'Entrenador',
   JUGADOR: 'Jugador',
+  DOCTOR: 'Médico',
 };
 
 export function HomePage() {
@@ -66,7 +67,21 @@ export function HomePage() {
           </div>
         </RoleGuard>
 
-        <RoleGuard allowedRoles={['ENTRENADOR']}>
+        <RoleGuard allowedRoles={['ENTRENADOR', 'ADMIN_CLUB', 'SUPER_ADMIN', 'DOCTOR']}>
+          <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <h2 className="text-base font-semibold">Disponibilidad de jugadores</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Gestiona lesiones, restricciones y altas medicas de los jugadores.
+            </p>
+            <div className="mt-4">
+              <Button variant="outline" onClick={() => navigate('/availability')}>
+                Gestionar disponibilidad
+              </Button>
+            </div>
+          </div>
+        </RoleGuard>
+
+        <RoleGuard allowedRoles={['JUGADOR']}>
           <div className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">
             Tu rol ({roleLabel}) todavía no tiene acciones disponibles en esta sección.
           </div>

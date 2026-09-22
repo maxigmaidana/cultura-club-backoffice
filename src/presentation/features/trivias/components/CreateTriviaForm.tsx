@@ -183,7 +183,7 @@ export function CreateTriviaForm() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Categoría</label>
-            <Select value={categoriaId} onValueChange={(value) => setCategoriaId(value ?? '')}>
+            <Select value={categoriaId} onValueChange={(value: unknown) => setCategoriaId((value as string | null) ?? '')}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Seleccioná una categoría">
                   {(value: string | null) =>

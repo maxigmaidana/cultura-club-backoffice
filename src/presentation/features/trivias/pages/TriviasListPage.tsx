@@ -21,11 +21,6 @@ export function TriviasListPage() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Defensa RBAC: solo ADMIN_CLUB y SUPER_ADMIN pueden gestionar trivias
-  if (profile && profile.role !== 'ADMIN_CLUB' && profile.role !== 'SUPER_ADMIN') {
-    return <Navigate to="/home" replace />;
-  }
-
   useEffect(() => {
     const fetchTrivias = async () => {
       try {
@@ -74,6 +69,11 @@ export function TriviasListPage() {
     },
     {} as Record<string, TriviaWithCategoria[]>
   );
+
+  // Defensa RBAC: solo ADMIN_CLUB y SUPER_ADMIN pueden gestionar trivias
+  if (profile && profile.role !== 'ADMIN_CLUB' && profile.role !== 'SUPER_ADMIN') {
+    return <Navigate to="/home" replace />;
+  }
 
   return (
     <div className="min-h-[100svh] bg-background">
