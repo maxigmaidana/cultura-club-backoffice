@@ -53,7 +53,7 @@ export function availabilityStateVariant(
 export function statusLabel(status: UnavailabilityStatus): string {
   const labels: Record<UnavailabilityStatus, string> = {
     ACTIVE: 'Activa',
-    RECOVERING: 'En recuperacion',
+    RECOVERING: 'En recuperación',
     CLOSED: 'Alta medica',
   };
 
@@ -95,6 +95,31 @@ export function historyEventLabel(eventType: HistoryEventType): string {
   return labels[eventType];
 }
 
+export function formatDateOnly(value: string, locale = 'es-AR'): string {
+  const trimmed = value.trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+
+  if (!match) {
+    return value;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(locale).format(date);
+}
+
 function isRecord(value: JsonValue): value is { [key: string]: JsonValue } {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -122,12 +147,7 @@ function toDateLabel(value: JsonValue | null): string | null {
     return null;
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString('es-AR');
+  return formatDateOnly(value);
 }
 
 function toStatusLabel(value: JsonValue | null): string | null {

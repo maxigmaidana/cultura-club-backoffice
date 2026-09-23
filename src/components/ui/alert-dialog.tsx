@@ -9,6 +9,7 @@ interface AlertDialogProps {
   description: string;
   cancelText?: string;
   confirmText?: string;
+  confirmingText?: string;
   confirming?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -21,6 +22,7 @@ export function AlertDialog({
   description,
   cancelText = 'Cancelar',
   confirmText = 'Confirmar',
+  confirmingText = 'Procesando...',
   confirming = false,
   onCancel,
   onConfirm,
@@ -55,7 +57,7 @@ export function AlertDialog({
             {cancelText}
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={confirming}>
-            {confirming ? 'Procesando...' : confirmText}
+            {confirming ? confirmingText : confirmText}
           </Button>
         </div>
       </div>

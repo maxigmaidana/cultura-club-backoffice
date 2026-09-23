@@ -61,6 +61,7 @@ interface RpcAvailabilityRow {
   can_train: boolean;
   can_play: boolean;
   active_injuries_count: number;
+  has_recovering_injury: boolean;
 }
 
 interface UnavailabilityRow {
@@ -155,6 +156,14 @@ function normalizePosiciones(posiciones: string[] | string | null): string[] {
 function mapSupabaseErrorMessage(rawMessage: string): string {
   const message = rawMessage.toLowerCase();
 
+  if (message.includes('invalid input syntax for type date')) {
+    return 'Alguna fecha ingresada no es valida. Revisa los datos e intenta nuevamente.';
+  }
+
+  if (message.includes('sqlstate')) {
+    return 'No se pudo completar la operacion en este momento. Intenta nuevamente.';
+  }
+
   if (message.includes('permission denied') || message.includes('not authorized')) {
     return 'No tenes permisos para realizar esta accion.';
   }
@@ -172,6 +181,24 @@ function mapSupabaseErrorMessage(rawMessage: string): string {
   }
 
   return rawMessage;
+}
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeOptionalDate(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function extractSingle<T>(value: T | T[] | null | undefined): T | null {
@@ -265,6 +292,7 @@ function mapAvailability(row: RpcAvailabilityRow | null, playerId: string): Play
     canTrain: row?.can_train ?? true,
     canPlay: row?.can_play ?? true,
     activeInjuriesCount: row?.active_injuries_count ?? 0,
+    hasRecoveringInjury: row?.has_recovering_injury ?? false,
   };
 }
 
@@ -334,6 +362,7 @@ export class AvailabilityRepositoryImpl implements IAvailabilityRepository {
           canTrain: true,
           canPlay: true,
           activeInjuriesCount: 0,
+          hasRecoveringInjury: false,
         }));
 
         const usuario = extractSingle(player.usuarios);
@@ -552,25 +581,25 @@ export class AvailabilityRepositoryImpl implements IAvailabilityRepository {
       p_player_id: input.playerId,
       p_title: input.title,
       p_start_date: input.startDate,
-      p_description: input.description ?? null,
-      p_body_area: input.bodyArea ?? null,
+      p_description: normalizeOptionalText(input.description),
+      p_body_area: normalizeOptionalText(input.bodyArea),
       p_body_side: input.bodySide ?? 'NOT_APPLICABLE',
       p_severity: input.severity ?? 'MODERATE',
-      p_staff_notes: input.staffNotes ?? null,
-      p_relapse_of_id: input.relapseOfId ?? null,
+      p_staff_notes: normalizeOptionalText(input.staffNotes),
+      p_relapse_of_id: normalizeOptionalText(input.relapseOfId),
     };
 
     if (isDoctor) {
-      payload.p_player_notes = input.playerNotes ?? null;
-      payload.p_sports_recommendations = input.sportsRecommendations ?? null;
-      payload.p_estimated_return_date = input.estimatedReturnDate ?? null;
+      payload.p_player_notes = normalizeOptionalText(input.playerNotes);
+      payload.p_sports_recommendations = normalizeOptionalText(input.sportsRecommendations);
+      payload.p_estimated_return_date = normalizeOptionalDate(input.estimatedReturnDate);
       payload.p_can_train = input.canTrain ?? false;
       payload.p_can_play = input.canPlay ?? false;
-      payload.p_diagnosis = input.diagnosis ?? null;
-      payload.p_clinical_notes = input.clinicalNotes ?? null;
-      payload.p_treatment_plan = input.treatmentPlan ?? null;
-      payload.p_rehabilitation_plan = input.rehabilitationPlan ?? null;
-      payload.p_medical_recommendations = input.medicalRecommendations ?? null;
+      payload.p_diagnosis = normalizeOptionalText(input.diagnosis);
+      payload.p_clinical_notes = normalizeOptionalText(input.clinicalNotes);
+      payload.p_treatment_plan = normalizeOptionalText(input.treatmentPlan);
+      payload.p_rehabilitation_plan = normalizeOptionalText(input.rehabilitationPlan);
+      payload.p_medical_recommendations = normalizeOptionalText(input.medicalRecommendations);
     }
 
     const { data, error } = await supabase.rpc('create_player_injury', payload);

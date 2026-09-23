@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
 
+import { AlertDialog } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -18,17 +19,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/presentation/features/auth/context/AuthContext';
 import {
   createInjuryUseCase,
+  getPlayerForAvailabilityUseCase,
   getPlayerUnavailabilitiesUseCase,
-  getPlayersForAvailabilityUseCase,
 } from '@/presentation/features/availability/services/availabilityDependencies';
-import { bodySideLabel, severityLabel } from '@/presentation/features/availability/utils/availabilityUi';
+import {
+  bodySideLabel,
+  formatDateOnly,
+  severityLabel,
+} from '@/presentation/features/availability/utils/availabilityUi';
 import type {
   BodySide,
   CreateInjuryInput,
   InjurySeverity,
-  PlayerForAvailability,
+  PlayerAvailabilityContext,
   PlayerUnavailability,
 } from '@/domain/entities/availability/Availability';
+
+type InjuryFormState = Omit<CreateInjuryInput, 'playerId'>;
 
 const ALLOWED_ROLES = ['ENTRENADOR', 'ADMIN_CLUB', 'SUPER_ADMIN', 'DOCTOR'] as const;
 
@@ -39,24 +46,36 @@ function isAllowedRole(role: string): boolean {
 const BODY_SIDE_OPTIONS: BodySide[] = ['LEFT', 'RIGHT', 'BILATERAL', 'NOT_APPLICABLE'];
 const SEVERITY_OPTIONS: InjurySeverity[] = ['MILD', 'MODERATE', 'SEVERE'];
 
+function sanitizeCreationError(message: string): string {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes('invalid input syntax for type date') || normalized.includes('sqlstate')) {
+    return 'No se pudo registrar la lesion. Revisa los datos e intenta nuevamente.';
+  }
+
+  return message;
+}
+
 export function CreateInjuryPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const fixedPlayerId = (searchParams.get('playerId') ?? '').trim();
 
   const doctorMode = profile?.role === 'DOCTOR';
   const profileId = profile?.id;
   const profileRole = profile?.role;
   const profileClubId = profile?.club_id;
 
-  const [players, setPlayers] = useState<PlayerForAvailability[]>([]);
+  const [player, setPlayer] = useState<PlayerAvailabilityContext | null>(null);
+  const [loadingPlayer, setLoadingPlayer] = useState(false);
   const [closedInjuries, setClosedInjuries] = useState<PlayerUnavailability[]>([]);
-  const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dialogError, setDialogError] = useState<string | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  const [form, setForm] = useState<CreateInjuryInput>({
-    playerId: searchParams.get('playerId') ?? '',
+  const [form, setForm] = useState<InjuryFormState>({
     title: '',
     startDate: '',
     description: '',
@@ -78,84 +97,99 @@ export function CreateInjuryPage() {
   });
 
   useEffect(() => {
-    const fetchPlayers = async () => {
-      if (!profileId || !profileRole) {
+    const fetchPlayer = async () => {
+      if (!profileId || !profileRole || !fixedPlayerId) {
         return;
       }
 
       try {
-        setLoadingPlayers(true);
-        const data = await getPlayersForAvailabilityUseCase.execute({
+        setLoadingPlayer(true);
+        const data = await getPlayerForAvailabilityUseCase.execute({
           role: profileRole,
           requesterId: profileId,
           clubId: profileClubId,
+          playerId: fixedPlayerId,
         });
-        setPlayers(data);
 
-        if (data[0]?.userId) {
-          setForm((prev) => (prev.playerId ? prev : { ...prev, playerId: data[0].userId }));
-        }
+        setPlayer(data);
       } catch (err) {
-        console.error('Error al obtener jugadores para registrar lesion:', err);
-        const message = err instanceof Error ? err.message : 'No se pudieron cargar los jugadores.';
+        console.error('Error al obtener jugador para registrar lesion:', err);
+        const message = err instanceof Error ? err.message : 'No se pudo cargar el jugador.';
         setError(message);
       } finally {
-        setLoadingPlayers(false);
+        setLoadingPlayer(false);
       }
     };
 
-    void fetchPlayers();
-  }, [profileClubId, profileId, profileRole]);
+    void fetchPlayer();
+  }, [fixedPlayerId, profileClubId, profileId, profileRole]);
 
   useEffect(() => {
     const fetchClosedInjuries = async () => {
-      if (!form.playerId) {
+      if (!fixedPlayerId) {
         setClosedInjuries([]);
         return;
       }
 
       try {
-        const injuries = await getPlayerUnavailabilitiesUseCase.execute(form.playerId);
+        const injuries = await getPlayerUnavailabilitiesUseCase.execute(fixedPlayerId);
         setClosedInjuries(injuries.filter((injury) => injury.status === 'CLOSED'));
       } catch (err) {
         console.error('Error al obtener lesiones cerradas para recaidas:', err);
       }
     };
 
-    fetchClosedInjuries();
-  }, [form.playerId]);
-
-  const selectedPlayer = useMemo(
-    () => players.find((player) => player.userId === form.playerId) ?? null,
-    [players, form.playerId]
-  );
+    void fetchClosedInjuries();
+  }, [fixedPlayerId]);
 
   if (profile && !isAllowedRole(profile.role)) {
     return <Navigate to="/home" replace />;
   }
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-
+  const validateForm = (): boolean => {
     setError(null);
 
-    if (!form.playerId) {
-      setError('Debes seleccionar un jugador.');
-      return;
+    if (!fixedPlayerId) {
+      setError('No se pudo identificar al jugador.');
+      return false;
     }
 
     if (!form.title.trim()) {
       setError('El titulo de la lesion es obligatorio.');
-      return;
+      return false;
     }
 
     if (!form.startDate) {
       setError('La fecha de inicio es obligatoria.');
-      return;
+      return false;
     }
 
     if (form.estimatedReturnDate && form.estimatedReturnDate < form.startDate) {
       setError('La fecha estimada de regreso no puede ser anterior a la fecha de inicio.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setDialogError(null);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmCreate = async () => {
+    if (saving) {
+      return;
+    }
+
+    if (!validateForm()) {
+      setShowConfirmDialog(false);
       return;
     }
 
@@ -166,10 +200,11 @@ export function CreateInjuryPage() {
 
     try {
       setSaving(true);
+      setDialogError(null);
 
       await createInjuryUseCase.execute(
         {
-          playerId: form.playerId,
+          playerId: fixedPlayerId,
           title: form.title.trim(),
           startDate: form.startDate,
           description: form.description,
@@ -192,22 +227,55 @@ export function CreateInjuryPage() {
         profile.role
       );
 
+      setShowConfirmDialog(false);
       navigate('/availability', { state: { injuryCreated: true } });
     } catch (err) {
       console.error('Error al crear lesion:', err);
       const message = err instanceof Error ? err.message : 'No se pudo registrar la lesion.';
-      setError(message);
+      const sanitizedMessage = sanitizeCreationError(message);
+      setDialogError(sanitizedMessage);
     } finally {
       setSaving(false);
     }
   };
+
+  if (!fixedPlayerId) {
+    return (
+      <div className="min-h-[100svh] bg-background">
+        <div className="h-1 w-full bg-[var(--brand-red)]" />
+        <header className="border-b px-4 py-4 sm:px-6">
+          <button
+            onClick={() => navigate('/availability')}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver
+          </button>
+        </header>
+
+        <main className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-6">
+          <Card className="border border-destructive/40 bg-destructive/5 p-5">
+            <p className="text-sm font-semibold text-destructive">No se pudo identificar al jugador.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Volve al panel de disponibilidad y selecciona un jugador.
+            </p>
+            <div className="mt-4">
+              <Button variant="outline" onClick={() => navigate('/availability')}>
+                Volver a disponibilidad
+              </Button>
+            </div>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100svh] bg-background">
       <div className="h-1 w-full bg-[var(--brand-red)]" />
       <header className="border-b px-4 py-4 sm:px-6">
         <button
-          onClick={() => navigate(form.playerId ? `/availability/players/${form.playerId}` : '/availability')}
+          onClick={() => navigate(fixedPlayerId ? `/availability/players/${fixedPlayerId}` : '/availability')}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -238,40 +306,27 @@ export function CreateInjuryPage() {
         <form className="space-y-5" onSubmit={handleSubmit}>
           <Card className="space-y-4 p-5">
             <h2 className="text-base font-semibold">Informacion general</h2>
+            <p className="text-xs text-muted-foreground">* Campos obligatorios</p>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
+              <div className="space-y-1 md:col-span-2">
                 <label className="text-xs font-medium uppercase text-muted-foreground">Jugador</label>
-                <Select
-                  value={form.playerId}
-                  onValueChange={(value: unknown) => setForm((prev) => ({ ...prev, playerId: (value as string | null) ?? '' }))}
-                  disabled={loadingPlayers}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue>
-                      {(value: string | null) =>
-                        players.find((player) => player.userId === value)?.nombreCompleto ??
-                        'Seleccionar jugador'
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {players.map((player) => (
-                      <SelectItem key={player.userId} value={player.userId}>
-                        {player.nombreCompleto}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedPlayer && (
-                  <p className="text-xs text-muted-foreground">
-                    {selectedPlayer.categoriaNombre} · {selectedPlayer.posiciones.join(', ') || 'Posicion sin cargar'}
+                <Card className="space-y-1 border-l-4 border-l-primary p-4">
+                  <p className="text-base font-semibold text-foreground">
+                    {loadingPlayer ? 'Cargando jugador...' : player?.nombreCompleto || 'Jugador sin nombre'}
                   </p>
-                )}
+                  <p className="text-sm text-muted-foreground">
+                    {player
+                      ? `${player.categoriaNombre} · ${player.posiciones.join(', ') || 'Posicion sin cargar'}`
+                      : 'Sin datos de categoria/posicion'}
+                  </p>
+                </Card>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-medium uppercase text-muted-foreground">Fecha de inicio</label>
+                <label className="text-xs font-medium uppercase text-muted-foreground">
+                  Fecha de inicio <span aria-hidden="true">*</span>
+                </label>
                 <Input
                   type="date"
                   value={form.startDate}
@@ -281,7 +336,9 @@ export function CreateInjuryPage() {
               </div>
 
               <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-medium uppercase text-muted-foreground">Titulo</label>
+                <label className="text-xs font-medium uppercase text-muted-foreground">
+                  Titulo <span aria-hidden="true">*</span>
+                </label>
                 <Input
                   value={form.title}
                   onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
@@ -519,12 +576,74 @@ export function CreateInjuryPage() {
           )}
 
           <div className="flex justify-end">
-            <Button type="submit" disabled={saving || loadingPlayers}>
-              {saving ? 'Guardando...' : 'Registrar lesion'}
+            <Button type="submit" disabled={saving || loadingPlayer}>
+              Registrar lesion
             </Button>
           </div>
         </form>
       </main>
+
+      <AlertDialog
+        open={showConfirmDialog}
+        title="Confirmar registro de lesion"
+        description="Revisa los datos antes de registrar la lesion."
+        cancelText="Cancelar"
+        confirmText="Confirmar y registrar"
+        confirmingText="Registrando..."
+        confirming={saving}
+        onCancel={() => {
+          setDialogError(null);
+          setShowConfirmDialog(false);
+        }}
+        onConfirm={handleConfirmCreate}
+      >
+        <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+          <div>
+            <p className="text-xs font-medium uppercase text-muted-foreground">Jugador</p>
+            <p className="text-sm font-semibold">{player?.nombreCompleto || 'Jugador sin nombre'}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase text-muted-foreground">Fecha de inicio</p>
+            <p className="text-sm font-semibold">
+              {form.startDate ? formatDateOnly(form.startDate) : '-'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase text-muted-foreground">Lesion</p>
+            <p className="text-sm font-semibold">{form.title.trim() || '-'}</p>
+          </div>
+
+          {(form.bodyArea || form.bodySide || form.severity) && (
+            <div className="space-y-2 border-t pt-3">
+              {form.bodyArea && (
+                <div>
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Zona corporal</p>
+                  <p className="text-sm">{form.bodyArea}</p>
+                </div>
+              )}
+              {form.bodySide && (
+                <div>
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Lado</p>
+                  <p className="text-sm">{bodySideLabel(form.bodySide)}</p>
+                </div>
+              )}
+              {form.severity && (
+                <div>
+                  <p className="text-xs font-medium uppercase text-muted-foreground">Severidad</p>
+                  <p className="text-sm">{severityLabel(form.severity)}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {dialogError && (
+            <div className="space-y-1 border-t border-destructive/30 pt-3">
+              <p className="text-sm font-semibold text-destructive">No se pudo registrar la lesion.</p>
+              <p className="text-sm text-destructive/90">{dialogError}</p>
+            </div>
+          )}
+        </div>
+      </AlertDialog>
     </div>
   );
 }

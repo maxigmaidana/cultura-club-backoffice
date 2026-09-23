@@ -17,6 +17,7 @@ import {
   availabilityStateLabel,
   availabilityStateVariant,
   bodySideLabel,
+  formatDateOnly,
   getAvailabilityState,
   severityLabel,
   statusLabel,
@@ -200,7 +201,7 @@ export function PlayerAvailabilityDetailPage() {
                         <div>
                           <h3 className="font-semibold">{injury.title}</h3>
                           <p className="text-xs text-muted-foreground">
-                            Inicio: {new Date(injury.startDate).toLocaleDateString('es-AR')}
+                            Inicio: {formatDateOnly(injury.startDate)}
                           </p>
                         </div>
                         <Badge variant="warning">{statusLabel(injury.status)}</Badge>
@@ -216,7 +217,7 @@ export function PlayerAvailabilityDetailPage() {
                         <p>
                           Regreso estimado:{' '}
                           {injury.estimatedReturnDate
-                            ? new Date(injury.estimatedReturnDate).toLocaleDateString('es-AR')
+                            ? formatDateOnly(injury.estimatedReturnDate)
                             : 'Sin fecha'}
                         </p>
                       </div>

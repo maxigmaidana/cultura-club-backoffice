@@ -24,6 +24,7 @@ export interface PlayerAvailability {
   canTrain: boolean;
   canPlay: boolean;
   activeInjuriesCount: number;
+  hasRecoveringInjury: boolean;
 }
 
 export interface PlayerForAvailability {

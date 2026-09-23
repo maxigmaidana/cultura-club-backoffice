@@ -23,6 +23,7 @@ import {
   availabilityStateLabel,
   availabilityStateVariant,
   getAvailabilityState,
+  statusLabel,
 } from '@/presentation/features/availability/utils/availabilityUi';
 import type {
   AvailabilityCategory,
@@ -129,7 +130,7 @@ export function AvailabilityDashboardPage() {
       }
 
       if (statusFilter === 'FOLLOW_UP') {
-        return state === 'FOLLOW_UP' || state === 'TRAINING_RESTRICTION';
+        return player.availability.hasRecoveringInjury;
       }
 
       return state === 'AVAILABLE';
@@ -216,7 +217,7 @@ export function AvailabilityDashboardPage() {
                       }
 
                       if (value === 'FOLLOW_UP') {
-                        return 'Con seguimiento';
+                        return 'En recuperación';
                       }
 
                       return 'Disponibles';
@@ -226,7 +227,7 @@ export function AvailabilityDashboardPage() {
                 <SelectContent>
                   <SelectItem value="ALL">Todos</SelectItem>
                   <SelectItem value="NOT_AVAILABLE">No disponibles</SelectItem>
-                  <SelectItem value="FOLLOW_UP">Con seguimiento</SelectItem>
+                  <SelectItem value="FOLLOW_UP">En recuperación</SelectItem>
                   <SelectItem value="AVAILABLE">Disponibles</SelectItem>
                 </SelectContent>
               </Select>
@@ -287,7 +288,12 @@ export function AvailabilityDashboardPage() {
                         <h3 className="text-sm font-semibold">{player.nombreCompleto}</h3>
                         <p className="text-xs text-muted-foreground">{player.categoriaNombre}</p>
                       </div>
-                      <Badge variant={variant}>{availabilityStateLabel(state)}</Badge>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Badge variant={variant}>{availabilityStateLabel(state)}</Badge>
+                        {player.availability.hasRecoveringInjury && (
+                          <Badge variant="outline">{statusLabel('RECOVERING')}</Badge>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-1 text-xs text-muted-foreground">

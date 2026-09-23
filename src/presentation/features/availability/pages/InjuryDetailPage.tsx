@@ -572,7 +572,7 @@ export function InjuryDetailPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ACTIVE">Activa</SelectItem>
-                        <SelectItem value="RECOVERING">En recuperacion</SelectItem>
+                        <SelectItem value="RECOVERING">En recuperación</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
