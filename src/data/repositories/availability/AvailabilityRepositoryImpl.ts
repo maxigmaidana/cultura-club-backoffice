@@ -20,10 +20,27 @@ import type {
   UpdateGeneralInjuryInput,
   UpdateMedicalAssessmentInput,
   UpdateMedicalDetailsInput,
+  UpdatePlayerInjuryFullInput,
   UpdateStaffNotesInput,
 } from '@/domain/entities/availability/Availability';
+import type {
+  CreateAttachmentSignedUrlInput,
+  CreateLinkAttachmentInput,
+  DeleteAttachmentInput,
+  PlayerUnavailabilityAttachment,
+  UploadFileAttachmentInput,
+} from '@/domain/entities/availability/PlayerUnavailabilityAttachment';
 import type { Role } from '@/domain/entities/auth/UserProfile';
 import type { IAvailabilityRepository } from '@/domain/repositories/availability/availability_repository';
+
+const ATTACHMENTS_BUCKET = 'medical-attachments';
+const MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
 
 interface PlayerRow {
   usuario_id: string;
@@ -138,6 +155,22 @@ interface CategoriaRow {
   entrenador_id: string | null;
 }
 
+interface AttachmentRow {
+  id: string;
+  unavailability_id: string;
+  attachment_type: 'LINK' | 'FILE';
+  title: string;
+  description: string | null;
+  external_url: string | null;
+  storage_bucket: string | null;
+  storage_path: string | null;
+  original_filename: string | null;
+  mime_type: string | null;
+  file_size_bytes: number | null;
+  uploaded_by: string;
+  created_at: string;
+}
+
 function normalizePosiciones(posiciones: string[] | string | null): string[] {
   if (!posiciones) {
     return [];
@@ -199,6 +232,34 @@ function normalizeOptionalDate(value: string | null | undefined): string | null 
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeFileName(value: string): string {
+  return value
+    .trim()
+    .replace(/[\\/]/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function mapAttachmentRow(row: AttachmentRow): PlayerUnavailabilityAttachment {
+  return {
+    id: row.id,
+    unavailabilityId: row.unavailability_id,
+    attachmentType: row.attachment_type,
+    title: row.title,
+    description: row.description,
+    externalUrl: row.external_url,
+    storageBucket: row.storage_bucket,
+    storagePath: row.storage_path,
+    originalFilename: row.original_filename,
+    mimeType: row.mime_type,
+    fileSizeBytes: row.file_size_bytes,
+    uploadedBy: row.uploaded_by,
+    createdAt: row.created_at,
+  };
 }
 
 function extractSingle<T>(value: T | T[] | null | undefined): T | null {
@@ -731,6 +792,194 @@ export class AvailabilityRepositoryImpl implements IAvailabilityRepository {
     if (error) {
       throw new Error(mapSupabaseErrorMessage(error.message));
     }
+  }
+
+  async updatePlayerInjuryFull(input: UpdatePlayerInjuryFullInput): Promise<void> {
+    const { error } = await supabase.rpc('update_player_injury_full', {
+      p_unavailability_id: input.unavailabilityId,
+      p_title: input.title,
+      p_description: normalizeOptionalText(input.description),
+      p_body_area: normalizeOptionalText(input.bodyArea),
+      p_body_side: input.bodySide,
+      p_severity: input.severity,
+      p_start_date: input.startDate,
+
+      p_status: input.status,
+      p_can_train: input.canTrain,
+      p_can_play: input.canPlay,
+      p_estimated_return_date: normalizeOptionalDate(input.estimatedReturnDate),
+      p_player_notes: normalizeOptionalText(input.playerNotes),
+
+      p_staff_notes: normalizeOptionalText(input.staffNotes),
+      p_sports_recommendations: normalizeOptionalText(input.sportsRecommendations),
+
+      p_diagnosis: normalizeOptionalText(input.diagnosis),
+      p_clinical_notes: normalizeOptionalText(input.clinicalNotes),
+      p_treatment_plan: normalizeOptionalText(input.treatmentPlan),
+      p_rehabilitation_plan: normalizeOptionalText(input.rehabilitationPlan),
+      p_medical_recommendations: normalizeOptionalText(input.medicalRecommendations),
+    });
+
+    if (error) {
+      throw new Error(mapSupabaseErrorMessage(error.message));
+    }
+  }
+
+  async getUnavailabilityAttachments(unavailabilityId: string): Promise<PlayerUnavailabilityAttachment[]> {
+    const { data, error } = await supabase
+      .from('player_unavailability_attachments')
+      .select('*')
+      .eq('unavailability_id', unavailabilityId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(mapSupabaseErrorMessage(error.message));
+    }
+
+    return ((data ?? []) as AttachmentRow[]).map(mapAttachmentRow);
+  }
+
+  async createLinkAttachment(input: CreateLinkAttachmentInput): Promise<PlayerUnavailabilityAttachment> {
+    const normalizedTitle = input.title.trim();
+    const normalizedUrl = input.url.trim();
+
+    if (normalizedTitle.length === 0) {
+      throw new Error('El titulo es obligatorio.');
+    }
+
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      throw new Error('La URL debe comenzar con http:// o https://.');
+    }
+
+    const { data, error } = await supabase
+      .from('player_unavailability_attachments')
+      .insert({
+        unavailability_id: input.unavailabilityId,
+        attachment_type: 'LINK',
+        title: normalizedTitle,
+        description: normalizeOptionalText(input.description),
+        external_url: normalizedUrl,
+        storage_bucket: null,
+        storage_path: null,
+        original_filename: null,
+        mime_type: null,
+        file_size_bytes: null,
+        uploaded_by: input.uploadedBy,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      throw new Error(mapSupabaseErrorMessage(error.message));
+    }
+
+    return mapAttachmentRow(data as AttachmentRow);
+  }
+
+  async uploadFileAttachment(input: UploadFileAttachmentInput): Promise<PlayerUnavailabilityAttachment> {
+    const normalizedTitle = input.title.trim();
+
+    if (normalizedTitle.length === 0) {
+      throw new Error('El titulo es obligatorio.');
+    }
+
+    if (!ALLOWED_ATTACHMENT_MIME_TYPES.has(input.file.type)) {
+      throw new Error('El tipo de archivo no esta permitido.');
+    }
+
+    if (input.file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      throw new Error('El archivo supera el limite de 50 MB.');
+    }
+
+    const normalizedFilename = normalizeFileName(input.file.name);
+    const safeFilename = normalizedFilename.length > 0 ? normalizedFilename : 'archivo';
+    const storagePath = `${input.clubId}/${input.playerId}/${input.unavailabilityId}/${crypto.randomUUID()}-${safeFilename}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(ATTACHMENTS_BUCKET)
+      .upload(storagePath, input.file, {
+        contentType: input.file.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(mapSupabaseErrorMessage(uploadError.message));
+    }
+
+    const { data, error } = await supabase
+      .from('player_unavailability_attachments')
+      .insert({
+        unavailability_id: input.unavailabilityId,
+        attachment_type: 'FILE',
+        title: normalizedTitle,
+        description: normalizeOptionalText(input.description),
+        external_url: null,
+        storage_bucket: ATTACHMENTS_BUCKET,
+        storage_path: storagePath,
+        original_filename: input.file.name,
+        mime_type: input.file.type,
+        file_size_bytes: input.file.size,
+        uploaded_by: input.uploadedBy,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      const { error: cleanupError } = await supabase.storage
+        .from(ATTACHMENTS_BUCKET)
+        .remove([storagePath]);
+
+      if (cleanupError) {
+        console.error('No se pudo eliminar el archivo huerfano tras fallo de metadata:', cleanupError);
+      }
+
+      throw new Error(mapSupabaseErrorMessage(error.message));
+    }
+
+    return mapAttachmentRow(data as AttachmentRow);
+  }
+
+  async deleteAttachment(input: DeleteAttachmentInput): Promise<void> {
+    const { attachment } = input;
+
+    if (attachment.attachmentType === 'FILE') {
+      if (!attachment.storageBucket || !attachment.storagePath) {
+        throw new Error('No se encontro la referencia del archivo a eliminar.');
+      }
+
+      const { error: storageError } = await supabase.storage
+        .from(attachment.storageBucket)
+        .remove([attachment.storagePath]);
+
+      if (storageError) {
+        console.error('Error al eliminar archivo de storage:', storageError);
+        throw new Error('No se pudo eliminar el archivo del almacenamiento.');
+      }
+    }
+
+    const { error: metadataError } = await supabase
+      .from('player_unavailability_attachments')
+      .delete()
+      .eq('id', attachment.id);
+
+    if (metadataError) {
+      console.error('Error al eliminar metadata de adjunto:', metadataError);
+      throw new Error(mapSupabaseErrorMessage(metadataError.message));
+    }
+  }
+
+  async createAttachmentSignedUrl(input: CreateAttachmentSignedUrlInput): Promise<string> {
+    const { data, error } = await supabase.storage
+      .from(input.storageBucket)
+      .createSignedUrl(input.storagePath, input.expiresInSeconds ?? 60, {
+        download: input.downloadFilename,
+      });
+
+    if (error || !data?.signedUrl) {
+      throw new Error(mapSupabaseErrorMessage(error?.message ?? 'No se pudo generar el acceso temporal.'));
+    }
+
+    return data.signedUrl;
   }
 
   async closeInjury(injuryId: string): Promise<void> {

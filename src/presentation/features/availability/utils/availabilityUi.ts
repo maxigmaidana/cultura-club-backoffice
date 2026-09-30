@@ -84,6 +84,7 @@ export function bodySideLabel(side: BodySide): string {
 export function historyEventLabel(eventType: HistoryEventType): string {
   const labels: Record<HistoryEventType, string> = {
     CREATED: 'Lesion registrada',
+    INJURY_UPDATED: 'Ficha actualizada',
     DETAILS_UPDATED: 'Informacion general actualizada',
     STATUS_CHANGED: 'Estado actualizado',
     RESTRICTIONS_CHANGED: 'Disponibilidad modificada',
@@ -269,6 +270,39 @@ export function formatHistoryDetails(eventType: HistoryEventType, details: JsonV
 
   if (eventType === 'MEDICAL_CLEARANCE') {
     return ['Alta medica otorgada.'];
+  }
+
+  if (eventType === 'INJURY_UPDATED') {
+    const lines: string[] = [];
+    const rawSections = getRecordValue(details, ['sections']);
+    const sectionValues = Array.isArray(rawSections)
+      ? rawSections.filter((value): value is string => typeof value === 'string')
+      : [];
+    const sectionSet = new Set(sectionValues.map((value) => value.toLowerCase()));
+
+    const generalChanged = getRecordValue(details, ['general_changed', 'generalChanged']) === true;
+    const availabilityChanged =
+      getRecordValue(details, ['availability_changed', 'availabilityChanged']) === true;
+    const staffChanged = getRecordValue(details, ['staff_changed', 'staffChanged']) === true;
+    const medicalChanged = getRecordValue(details, ['medical_changed', 'medicalChanged']) === true;
+
+    if (generalChanged || sectionSet.has('general')) {
+      lines.push('Informacion general');
+    }
+
+    if (availabilityChanged || sectionSet.has('availability')) {
+      lines.push('Disponibilidad medica');
+    }
+
+    if (staffChanged || sectionSet.has('staff')) {
+      lines.push('Informacion del cuerpo tecnico');
+    }
+
+    if (medicalChanged || sectionSet.has('medical')) {
+      lines.push('Informacion medica');
+    }
+
+    return lines.length > 0 ? lines : ['Ficha actualizada.'];
   }
 
   if (eventType === 'DETAILS_UPDATED') {

@@ -7,6 +7,7 @@ export type InjurySeverity = 'MILD' | 'MODERATE' | 'SEVERE';
 
 export type HistoryEventType =
   | 'CREATED'
+  | 'INJURY_UPDATED'
   | 'DETAILS_UPDATED'
   | 'STATUS_CHANGED'
   | 'RESTRICTIONS_CHANGED'
@@ -188,6 +189,28 @@ export interface UpdateMedicalAssessmentInput {
 
 export interface UpdateMedicalDetailsInput {
   injuryId: string;
+  diagnosis: string;
+  clinicalNotes: string;
+  treatmentPlan: string;
+  rehabilitationPlan: string;
+  medicalRecommendations: string;
+}
+
+export interface UpdatePlayerInjuryFullInput {
+  unavailabilityId: string;
+  title: string;
+  description: string;
+  bodyArea: string;
+  bodySide: BodySide;
+  severity: InjurySeverity;
+  startDate: string;
+  status: Extract<UnavailabilityStatus, 'ACTIVE' | 'RECOVERING'>;
+  canTrain: boolean;
+  canPlay: boolean;
+  estimatedReturnDate?: string | null;
+  playerNotes?: string;
+  staffNotes: string;
+  sportsRecommendations: string;
   diagnosis: string;
   clinicalNotes: string;
   treatmentPlan: string;

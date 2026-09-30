@@ -1,5 +1,8 @@
 import { CloseInjuryUseCase } from '@/aplication/use-cases/availability/CloseInjuryUseCase';
 import { CreateInjuryUseCase } from '@/aplication/use-cases/availability/CreateInjuryUseCase';
+import { CreateAttachmentSignedUrlUseCase } from '@/aplication/use-cases/availability/CreateAttachmentSignedUrlUseCase';
+import { CreateLinkAttachmentUseCase } from '@/aplication/use-cases/availability/CreateLinkAttachmentUseCase';
+import { DeleteUnavailabilityAttachmentUseCase } from '@/aplication/use-cases/availability/DeleteUnavailabilityAttachmentUseCase';
 import { GetCategoriesForAvailabilityUseCase } from '@/aplication/use-cases/availability/GetCategoriesForAvailabilityUseCase';
 import { GetMedicalDetailsUseCase } from '@/aplication/use-cases/availability/GetMedicalDetailsUseCase';
 import { GetPlayerAvailabilityUseCase } from '@/aplication/use-cases/availability/GetPlayerAvailabilityUseCase';
@@ -7,12 +10,11 @@ import { GetPlayerForAvailabilityUseCase } from '@/aplication/use-cases/availabi
 import { GetPlayersForAvailabilityUseCase } from '@/aplication/use-cases/availability/GetPlayersForAvailabilityUseCase';
 import { GetPlayerUnavailabilitiesUseCase } from '@/aplication/use-cases/availability/GetPlayerUnavailabilitiesUseCase';
 import { GetStaffDetailsUseCase } from '@/aplication/use-cases/availability/GetStaffDetailsUseCase';
+import { GetUnavailabilityAttachmentsUseCase } from '@/aplication/use-cases/availability/GetUnavailabilityAttachmentsUseCase';
 import { GetUnavailabilityByIdUseCase } from '@/aplication/use-cases/availability/GetUnavailabilityByIdUseCase';
 import { GetUnavailabilityHistoryUseCase } from '@/aplication/use-cases/availability/GetUnavailabilityHistoryUseCase';
-import { UpdateGeneralInjuryUseCase } from '@/aplication/use-cases/availability/UpdateGeneralInjuryUseCase';
-import { UpdateMedicalAssessmentUseCase } from '@/aplication/use-cases/availability/UpdateMedicalAssessmentUseCase';
-import { UpdateMedicalDetailsUseCase } from '@/aplication/use-cases/availability/UpdateMedicalDetailsUseCase';
-import { UpdateStaffNotesUseCase } from '@/aplication/use-cases/availability/UpdateStaffNotesUseCase';
+import { UploadFileAttachmentUseCase } from '@/aplication/use-cases/availability/UploadFileAttachmentUseCase';
+import { UpdatePlayerInjuryFullUseCase } from '@/aplication/use-cases/availability/UpdatePlayerInjuryFullUseCase';
 import { AvailabilityRepositoryImpl } from '@/data/repositories/availability/AvailabilityRepositoryImpl';
 
 const availabilityRepository = new AvailabilityRepositoryImpl();
@@ -25,10 +27,12 @@ export const getPlayerUnavailabilitiesUseCase = new GetPlayerUnavailabilitiesUse
 export const getUnavailabilityByIdUseCase = new GetUnavailabilityByIdUseCase(availabilityRepository);
 export const getStaffDetailsUseCase = new GetStaffDetailsUseCase(availabilityRepository);
 export const getMedicalDetailsUseCase = new GetMedicalDetailsUseCase(availabilityRepository);
+export const getUnavailabilityAttachmentsUseCase = new GetUnavailabilityAttachmentsUseCase(availabilityRepository);
 export const getUnavailabilityHistoryUseCase = new GetUnavailabilityHistoryUseCase(availabilityRepository);
 export const createInjuryUseCase = new CreateInjuryUseCase(availabilityRepository);
-export const updateGeneralInjuryUseCase = new UpdateGeneralInjuryUseCase(availabilityRepository);
-export const updateStaffNotesUseCase = new UpdateStaffNotesUseCase(availabilityRepository);
-export const updateMedicalAssessmentUseCase = new UpdateMedicalAssessmentUseCase(availabilityRepository);
-export const updateMedicalDetailsUseCase = new UpdateMedicalDetailsUseCase(availabilityRepository);
+export const updatePlayerInjuryFullUseCase = new UpdatePlayerInjuryFullUseCase(availabilityRepository);
 export const closeInjuryUseCase = new CloseInjuryUseCase(availabilityRepository);
+export const createLinkAttachmentUseCase = new CreateLinkAttachmentUseCase(availabilityRepository);
+export const uploadFileAttachmentUseCase = new UploadFileAttachmentUseCase(availabilityRepository);
+export const deleteUnavailabilityAttachmentUseCase = new DeleteUnavailabilityAttachmentUseCase(availabilityRepository);
+export const createAttachmentSignedUrlUseCase = new CreateAttachmentSignedUrlUseCase(availabilityRepository);

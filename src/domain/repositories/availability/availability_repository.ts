@@ -14,8 +14,16 @@ import type {
   UpdateGeneralInjuryInput,
   UpdateMedicalAssessmentInput,
   UpdateMedicalDetailsInput,
+  UpdatePlayerInjuryFullInput,
   UpdateStaffNotesInput,
 } from '@/domain/entities/availability/Availability';
+import type {
+  CreateAttachmentSignedUrlInput,
+  CreateLinkAttachmentInput,
+  DeleteAttachmentInput,
+  PlayerUnavailabilityAttachment,
+  UploadFileAttachmentInput,
+} from '@/domain/entities/availability/PlayerUnavailabilityAttachment';
 import type { Role } from '@/domain/entities/auth/UserProfile';
 
 export interface IAvailabilityRepository {
@@ -33,5 +41,11 @@ export interface IAvailabilityRepository {
   updateStaffNotes(input: UpdateStaffNotesInput): Promise<void>;
   updateMedicalAssessment(input: UpdateMedicalAssessmentInput): Promise<void>;
   updateMedicalDetails(input: UpdateMedicalDetailsInput): Promise<void>;
+  updatePlayerInjuryFull(input: UpdatePlayerInjuryFullInput): Promise<void>;
   closeInjury(injuryId: string): Promise<void>;
+  getUnavailabilityAttachments(unavailabilityId: string): Promise<PlayerUnavailabilityAttachment[]>;
+  createLinkAttachment(input: CreateLinkAttachmentInput): Promise<PlayerUnavailabilityAttachment>;
+  uploadFileAttachment(input: UploadFileAttachmentInput): Promise<PlayerUnavailabilityAttachment>;
+  deleteAttachment(input: DeleteAttachmentInput): Promise<void>;
+  createAttachmentSignedUrl(input: CreateAttachmentSignedUrlInput): Promise<string>;
 }
